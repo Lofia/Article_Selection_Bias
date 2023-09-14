@@ -1,17 +1,7 @@
-# if theta<rate v_tilde is a constant ???
 MM=function(x,N,alpha,beta){
   n=length(x)
-  # 
-  # alpha=beta=0
-  # x=sort(rexp(50,5));N=80
-  # theta=2
-  # c=0.2
-  # 
-  # est(c,theta)$v_tilde
+  
   est=function(c,theta){
-    pp=c(exp(-theta*x),0)
-    p=pp[1:n]-pp[2:(n+1)]
-    
     a=rep(1,n);a[1]=a[1]+n*alpha
     b=(N-n)/(1-c)*p;b[n]=b[n]+n*beta
     
@@ -26,23 +16,27 @@ MM=function(x,N,alpha,beta){
     return(list(v=v,v_tilde=unique(v),index=match(unique(v),v),M=M))
   }
   
-  bisection_c=function(left,right,theta,n=1){ # f increasing
+  bisection_c=function(left,right,theta,iter=1){ # f increasing
     mid=(left+right)/2
-    if(abs(left-right)<0.001) return(list(c=mid,iter=n))
-    n=n+1
     fmid=mid-sum(p*est(mid,theta)$v)
+    if(abs(left-right)<0.001) return(list(c=mid,iter=iter,fmid=fmid))
+    iter=iter+1
     #cat(c(left,right,mid,fmid))
     #cat('\n')
     if(fmid>0.001) return(bisection_c(left,mid,theta,n))
     if(fmid<0.001) return(bisection_c(mid,right,theta,n))
   }
   
-  bisection_theta=function(left,right,v,n=1){ # f increasing
+  bisection_theta=function(left,right,v,iter=1){ # f increasing
     mid=(left+right)/2
-    if(abs(left-right)<0.001) return(list(theta=mid,iter=n))
-    n=n+1
-    fmid=(N-n)/(1-sum(p*v))*sum(dp*v)+n/mid+sum(x)
-    fmid=-fmid
+    pp=c(exp(-mid*x),0)
+    p=pp[1:n]-pp[2:(n+1)]
+    ppp=c(x*exp(-mid*x),0)
+    dp=ppp[2:(n+1)]-ppp[1:n]
+    #cat('\n',length(p),length(dp),length(v),'\n')
+    fmid=(N-n)/(1-sum(p*v))*sum(dp*v)-n/mid+sum(x)
+    if(abs(left-right)<0.001) return(list(theta=mid,iter=iter,fmid=fmid))
+    iter=iter+1
     #cat(c(left,right,mid,fmid))
     #cat('\n')
     if(fmid>0.001) return(bisection_theta(left,mid,v,n))
@@ -54,31 +48,30 @@ MM=function(x,N,alpha,beta){
   repeat{
     pp=c(exp(-theta0*x),0)
     p=pp[1:n]-pp[2:(n+1)]
-    ppp=c(x*exp(-theta0*x),0)
-    dp=ppp[2:(n+1)]-ppp[1:n]
-    
+    # ppp=c(x*exp(-theta0*x),0)
+    # dp=ppp[2:(n+1)]-ppp[1:n]
     c=bisection_c(0,1,theta0)
     v=est(c$c,theta0)
     theta=bisection_theta(0,5/mean(x),v$v)
     
     llf=sum(log(v$v))-theta$theta*sum(x)+n*log(theta$theta)+(N-n)*log(1-sum(p*v$v))
     cat(iter,'\n',
-        'c:',c$c,c$iter,'\n',
+        'c:',c$c,c$iter,c$fmid,'\n',
         'v:',v$v_tilde,'\n',
-        'theta:',theta$theta,theta$iter,'\n',
+        'theta:',theta$theta,theta$iter,theta$fmid,'\n',
         'llf:',llf,'\n')
-    if(abs(theta$theta-theta0)<0.001) return(list(v=v$v_tilde,theta=theta$theta))
+    if(abs(theta$theta-theta0)<0.001) return(list(v=v$v_tilde,theta=theta$theta,llf=llf))
     theta0=theta$theta #;v0=v
     iter=iter+1
   }
 }
 
-x=sort(rexp(300,5))
+x=sort(rexp(100,5))
 1/mean(x)
-MM(x,350,0,0)
+MM(x,150,0.03,0.3)
 
 
-
+#iter=n??????????
 
 # an=alpha*n
 # Fx=function(x) return(1-exp(-theta*x))
