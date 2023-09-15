@@ -1,3 +1,6 @@
+####################
+### MM Algorithm ###
+####################
 MM=function(x,N,alpha,beta){
   n=length(x)
   
@@ -72,6 +75,25 @@ MM(x,150,0.03,0.3)
 
 
 #iter=n??????????
+
+#############################
+## 3D Critical Value Table ##
+#############################
+library(data.table)
+library(plotly)
+B=CJ(n=c(10,20,50,100),alpha=c(0.03,0.1,0.3,0.5),theta=c(0.5,1,2,5))
+B$value=round(sort(runif(64)),2)
+fig=plot_ly(B,x=~n,y=~alpha,z=~theta,text=~value,mode='text',type='scatter3d') %>% 
+  layout(title='3D Critical Value Table',
+    scene=list(xaxis=list(title='sample size n',type="category"),
+                    yaxis=list(title='constant alpha',type="category"),
+                    zaxis = list(title='parameter theta',type="category")))
+fig
+
+
+####################
+### Power Curves ###
+####################
 
 # an=alpha*n
 # Fx=function(x) return(1-exp(-theta*x))
