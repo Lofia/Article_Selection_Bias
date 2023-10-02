@@ -81,13 +81,14 @@ B=CJ(n=c(10,20,50),alpha=c(0.03,0.1,0.3),theta=c(0.5,1,2))
 B$value=rep(Inf,nrow(B))
 library(pbapply)
 for(i in 1:nrow(B)){
-  B[i,'value']=mean(pbsapply(1:100,function(nouse){
+  B[i,'value']=quantile(pbsapply(1:100,function(nouse){
     cat('n=',as.numeric(B[i,'n']),' alpha=',as.numeric(B[i,'alpha']),' theta=',as.numeric(B[i,'theta']),sep='')
     return(MM(sort(rexp(as.numeric(B[i,'n']),as.numeric(B[i,'theta']))),60,as.numeric(B[i,'alpha']),0.3)$llf)
-  }))
+  }),0.05)
 }
+save(B,file="critical_value.Rda")
 B$value=round(B$value,2)
-library(plotly)
+# library(plotly)
 fig=plot_ly(B,x=~n,y=~alpha,z=~theta,text=~value,mode='text',type='scatter3d') %>% 
   layout(#title='3D Critical Value Table',
     scene=list(xaxis=list(title='sample size n',type="category"),
@@ -99,6 +100,17 @@ fig
 ####################
 ### Power Curves ###
 ####################
+library(pbapply)
+M=1000
+bb=c(0,1,2,3,4,5)
+beta=rep(Inf,length(bb))
+for(i in 1:length(bb)){
+  b=bb[i]
+  cat('b =',b,'\n')
+  temp=pbsapply(1:M,function(nouse){
+    return(MM(sort(rgamma(20,shape=b+1,rate=1)),60,0.03,0.3)$llf)})
+  beta[i]=sum(temp<B$value[11])/M
+}
 
 
 
