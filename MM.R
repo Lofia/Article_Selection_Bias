@@ -86,7 +86,7 @@ for(i in 1:nrow(B)){
     return(MM(sort(rexp(as.numeric(B[i,'n']),as.numeric(B[i,'theta']))),60,as.numeric(B[i,'alpha']),0.3)$llf)
   }),0.05)
 }
-save(B,file="critical_value.Rda")
+save(B,file="critical_value_table.Rda")
 B$value=round(B$value,2)
 # library(plotly)
 fig=plot_ly(B,x=~n,y=~alpha,z=~theta,text=~value,mode='text',type='scatter3d') %>% 
@@ -97,22 +97,98 @@ fig=plot_ly(B,x=~n,y=~alpha,z=~theta,text=~value,mode='text',type='scatter3d') %
 fig
 
 
+#########################################
+## Critical Values for Computing Power ##
+#########################################
+library(data.table)
+Bp=CJ(n=c(10,20,50),alpha=c(0.03),theta=c(1))
+Bp$value=rep(Inf,nrow(Bp))
+library(pbapply)
+for(i in 1:nrow(Bp)){
+  cat('n =',Bp$n[i],'\n')
+  Bp[i,'value']=quantile(pbsapply(1:10000,function(nouse){
+    return(MM(sort(rexp(as.numeric(Bp[i,'n']),as.numeric(Bp[i,'theta']))),60,as.numeric(Bp[i,'alpha']),0.3)$llf)
+  }),0.05)
+}
+save(Bp,file="critical_value_for_power.Rda")
+
+
+###################
+### Power of MM ###
+###################
+load('critical_value_for_power.Rda')
+M=1000
+bb=seq(0,5,0.5)
+n=c(10,20,50)
+betas=matrix(nrow=length(bb),ncol=length(n))
+for(j in 1:length(n)){
+  for(i in 1:length(bb)){
+    b=bb[i]
+    cat('b =',b,'n =',n[j],'\n')
+    temp=pbsapply(1:M,function(nouse){
+      return(MM(sort(rgamma(n[j],shape=b+1,rate=1)),60,0.03,0.3)$llf)})
+    betas[i,j]=sum(temp<Bp$value[j])/M
+  }
+}
+save(betas,file="MM_power.Rda")
+
+
+#######################
+### Power of AUMPUT ###
+#######################
+h=function(alpha=0.05,n=10,theta=1){#simulate the critical value at
+  #significance level alpha, sample size n and parameter theta
+  N=100000
+  N_sampels=sapply(1:N,function(no){
+    x=rexp(n,theta)
+    return(mean(log(x))-log(mean(x)))
+  })
+  return(quantile(N_sampels,1-alpha))
+}
+k=function(beta,alpha=0.05,n=10,theta=1){#simulate the power at beta, with
+  #significance level alpha, sample size n and parameter theta
+  N=100000
+  N_sampels=sapply(1:N,function(no){
+    x=rgamma(n,shape=beta+1,scale=1/theta)
+    return(mean(log(x))-log(mean(x)))
+  })
+  c=h(alpha,n,theta)
+  return(sum(N_sampels>c)/N)
+}
+
+betas2=matrix(nrow=length(bb),ncol=length(n))
+for(i in 1:length(bb)){#change beta at b
+  for(j in 1:length(n)){#change n
+    cat('b =',bb[i],'n =',n[j],'\n')
+    betas2[i,j]=k(beta=bb[i],n=n[j])
+  }
+}
+save(betas2,file="AUMPUT_power.Rda")
+
+
 ####################
 ### Power Curves ###
 ####################
-library(pbapply)
-M=1000
-bb=c(0,1,2,3,4,5)
-beta=rep(Inf,length(bb))
-for(i in 1:length(bb)){
-  b=bb[i]
-  cat('b =',b,'\n')
-  temp=pbsapply(1:M,function(nouse){
-    return(MM(sort(rgamma(20,shape=b+1,rate=1)),60,0.03,0.3)$llf)})
-  beta[i]=sum(temp<B$value[11])/M
+# par(bg = "white")
+windowsFonts(A = windowsFont("Times New Roman"))
+plot(1,type="n",ylab='power',xlab='b',xlim=c(0, 5),ylim=c(0,1),family="A",
+     main='v(x)=x^b, N=60, alpha=0.03, beta=0.3')
+# rect(par("usr")[1], par("usr")[3],
+#      par("usr")[2], par("usr")[4],
+#      col = "aliceblue")
+for(i in 1:ncol(betas)){
+  lines(bb,betas[,i],pch=18,col=heat.colors(5)[i],type="b",lty=1)
+  lines(bb,betas2[,i],pch=19,col=heat.colors(5)[i],type="b",lty=2)
 }
+abline(h=0.05,lty=2)
+legend(2.5,0.5,legend=c(as.vector(outer(c("  MM  ","AUMPUT"),n,paste,sep="  n="))),
+       col=rep(heat.colors(5)[1:3],each=2),lty=1:2,pch=18:19,text.font=10,bg="#f7f7f7")
 
 
+
+# wl(x) = 0 or 1 if 0 < x < b or b < x < 1,
+# w2(x)= 0.1 or 1 if 0 < x < b or b < x < 1,
+# w3(x)=0 or 1/2 or 1 if 0 < x < b or b < x < 1/2 or 1/2 < x < 1
 
 
 # an=alpha*n
