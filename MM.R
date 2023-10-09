@@ -46,7 +46,7 @@ MM=function(x,N,alpha,beta){
     if(fmid<0) return(bisection_theta(mid,right,v,iter))
   }
   
-  theta0=1/mean(x)
+  theta0=0.3#1/mean(x)
   loop=1
   repeat{
     pp=c(exp(-theta0*x),0)
@@ -54,18 +54,22 @@ MM=function(x,N,alpha,beta){
     c=bisection_c(0,1,theta0)
     v=est(c$c,theta0)
     theta=bisection_theta(0,5/mean(x),v$v)
+      theta$theta=0.3
     
     llf=sum(log(v$v))-theta$theta*sum(x)+n*log(theta$theta)+(N-n)*log(1-sum(p*v$v))
-    # cat(loop,'\n',
-    #     'c:',c$c,c$iter,c$fmid,'\n',
-    #     'v:',v$v_tilde,'\n',
-    #     'theta:',theta$theta,theta$iter,theta$fmid,'\n',
-    #     'llf:',llf,'\n')
+    cat(loop,'\n',
+        'c:',c$c,c$iter,c$fmid,'\n',
+        'v:',v$v_tilde,'\n',
+        'theta:',theta$theta,theta$iter,theta$fmid,'\n',
+        'llf:',llf,'\n')
     if(abs(theta$theta-theta0)<0.001) return(list(v=v$v_tilde,theta=theta$theta,llf=llf))
     theta0=theta$theta #;v0=v
     loop=loop+1
   }
 }
+
+# x=sort(rgamma(90,shape=2+1,rate=3))
+# MM(x,100,0.03,0.3)
 
 # x=sort(rexp(300,5))
 # 1/mean(x)
