@@ -32,35 +32,42 @@ MM=function(x,N,alpha,beta){
   
   bisection_theta=function(left,right,v,iter=1){ # f increasing
     mid=(left+right)/2
-    pp=c(exp(-mid*x),0)
+    pp=c(exp(-mid*x),0) # p=p(theta)=p(mid)
     p=pp[1:n]-pp[2:(n+1)]
     ppp=c(x*exp(-mid*x),0)
     dp=ppp[2:(n+1)]-ppp[1:n]
     #cat('\n',length(p),length(dp),length(v),'\n')
     fmid=(N-n)/(1-sum(p*v))*sum(dp*v)-n/mid+sum(x)
-    if(abs(left-right)<0.0001) return(list(theta=mid,iter=iter,fmid=fmid))
+    if(abs(left-right)<0.00001) return(list(theta=mid,iter=iter,fmid=fmid))
     iter=iter+1
-    #cat(c(left,right,mid,fmid))
-    #cat('\n')
+    # cat(c(left,right,mid,fmid))
+    # cat('\n')
     if(fmid>=0) return(bisection_theta(left,mid,v,iter))
     if(fmid<0) return(bisection_theta(mid,right,v,iter))
   }
   
-  theta0=0.3#1/mean(x)
+  theta0=mean(x)/var(x) # under HA, mean=(b+1)/theta, var=(b+1)/theta^2
   loop=1
   repeat{
-    pp=c(exp(-theta0*x),0)
+    pp=c(exp(-theta0*x),0) # note p is always related to theta
     p=pp[1:n]-pp[2:(n+1)]
     c=bisection_c(0,1,theta0)
     v=est(c$c,theta0)
-    theta=bisection_theta(0,5/mean(x),v$v)
-      theta$theta=0.3
+    # llf0=sum(log(v$v))-theta0*sum(x)+n*log(theta0)+(N-n)*log(1-sum(p*v$v))
+      # v=x^2
+      # llf0=sum(log(v))-theta0*sum(x)+n*log(theta0)+(N-n)*log(1-sum(p*v))
+    theta=bisection_theta(0,5*mean(x)/var(x),v$v)
+    
+    pp=c(exp(-theta$theta*x),0)
+    p=pp[1:n]-pp[2:(n+1)]
     
     llf=sum(log(v$v))-theta$theta*sum(x)+n*log(theta$theta)+(N-n)*log(1-sum(p*v$v))
+      # llf=sum(log(v))-theta$theta*sum(x)+n*log(theta$theta)+(N-n)*log(1-sum(p*v))
     cat(loop,'\n',
         'c:',c$c,c$iter,c$fmid,'\n',
-        'v:',v$v_tilde,'\n',
+        'v:',v$v_tilde,v$index,'\n',
         'theta:',theta$theta,theta$iter,theta$fmid,'\n',
+        #'llf0:',llf0,'\n',
         'llf:',llf,'\n')
     if(abs(theta$theta-theta0)<0.001) return(list(v=v$v_tilde,theta=theta$theta,llf=llf))
     theta0=theta$theta #;v0=v
@@ -68,17 +75,19 @@ MM=function(x,N,alpha,beta){
   }
 }
 
-# x=sort(rgamma(90,shape=2+1,rate=3))
-# MM(x,100,0.03,0.3)
+x=sort(rgamma(10,shape=2+1,rate=5))
+N=n2N(x,2,5)
+mean(x)/var(x)
+re=MM(x,N,0.03,0.03)
 
 # x=sort(rexp(300,5))
 # 1/mean(x)
 # MM(x,350,0.03,0.3)
 
 
-#########################
-### real MM Algorithm ###
-#########################
+############################
+### General MM Algorithm ###
+############################
 GMM=function(x,N,alpha,beta){
   n=length(x)
   
@@ -187,13 +196,20 @@ save(Bp,file="critical_value_for_power.Rda")
 
 
 ###################
-### Power of MM ###
+### Power of MM ### x~exp(theta), v(x)~x^b
 ###################
+n2N=function(x,b,theta){ # compute lower bound of N based on x and theta
+  n=length(x)
+  pp=c(exp(-theta*x),0)
+  p=pp[1:n]-pp[2:(n+1)]
+  kappa=sum(p*x^b/x[n]^b)
+  return(floor(n/kappa)+1)
+}
+
 library(pbapply)
-# load('critical_value_for_power.Rda')
-M=50
-bb=seq(0,5,0.5)
-n=c(10,20,50)
+M=30
+bb=seq(0,5,1)#0.5)
+n=c(10)#,20,50)
 betas=matrix(nrow=length(bb),ncol=length(n))
 for(j in 1:length(n)){
   for(i in 1:length(bb)){
@@ -201,9 +217,12 @@ for(j in 1:length(n)){
     cat('b =',b,'n =',n[j],'\n')
     temp=pbsapply(1:M,function(nouse){
       x=sort(rgamma(n[j],shape=b+1,rate=1))
-      MME=MM(x,60,0.03,0.3)
-      cri=quantile(pbsapply(1:50,function(nouse){
-        return(MM(sort(rexp(n[j],MME$theta)),60,0.03,0.3)$llf)
+      N=n2N(x,b,1)
+      MME=MM(x,N,0.03,0.03)
+      cri=quantile(pbsapply(1:30,function(nouse){
+        x=sort(rexp(n[j],MME$theta))
+        N=n2N(x,0,1)
+        return(MM(sort(rexp(n[j],MME$theta)),N,0.03,0.03)$llf) # under null, no selection-bias, N=n
       }),0.05)
       if(MME$llf<cri) return(1)
       return(0)})
@@ -281,3 +300,31 @@ library(gamlss.tr)
 test1<-trun.r(par=c(1), family="EXP", type="left")
 rr<-test1(100000,mu=1)
 hist(rr,100)
+
+
+###########
+### RNG ###
+###########
+
+
+#################
+### llf-theta ###
+#################
+n=50;b=2
+x=sort(rgamma(50,shape=b+1,rate=3))
+N=n2N(x,2,3)
+mean(x)/var(x)
+
+llf_theta=function(theta){
+  pp=c(exp(-theta*x),0) # note p is always related to theta
+  p=pp[1:n]-pp[2:(n+1)]
+  ppp=c(x*exp(-theta*x),0)
+  dp=ppp[2:(n+1)]-ppp[1:n]
+  v=re$v#x^b/x[50]^b
+  llf=-theta*sum(x)+n*log(theta)+(N-n)*log(1-sum(p*v))
+  dllf=(N-n)/(1-sum(p*v))*sum(dp*v)-n/theta+sum(x)
+  #cat(sum(p*v),'\n')
+  return(llf)
+}
+
+plot(seq(0,5,0.5),sapply(seq(0,5,0.5),llf_theta))
