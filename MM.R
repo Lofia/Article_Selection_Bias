@@ -54,35 +54,32 @@ MM=function(x,N,alpha,beta){
     c=bisection_c(0,1,theta0)
     v=est(c$c,theta0)
     # llf0=sum(log(v$v))-theta0*sum(x)+n*log(theta0)+(N-n)*log(1-sum(p*v$v))
-      # v=x^2
-      # llf0=sum(log(v))-theta0*sum(x)+n*log(theta0)+(N-n)*log(1-sum(p*v))
+    # v=x^2
+    # llf0=sum(log(v))-theta0*sum(x)+n*log(theta0)+(N-n)*log(1-sum(p*v))
+    
     theta=bisection_theta(0,5*mean(x)/var(x),v$v)
     
     pp=c(exp(-theta$theta*x),0)
     p=pp[1:n]-pp[2:(n+1)]
-    
+    if(sum(p*v$v)>=1) return(list(v=v$v_tilde,theta=mean(x)/var(x),llf=-mean(x)/var(x)*sum(x)+n*log(mean(x)/var(x))))
     llf=sum(log(v$v))-theta$theta*sum(x)+n*log(theta$theta)+(N-n)*log(1-sum(p*v$v))
-      # llf=sum(log(v))-theta$theta*sum(x)+n*log(theta$theta)+(N-n)*log(1-sum(p*v))
-    cat(loop,'\n',
-        'c:',c$c,c$iter,c$fmid,'\n',
-        'v:',v$v_tilde,v$index,'\n',
-        'theta:',theta$theta,theta$iter,theta$fmid,'\n',
-        #'llf0:',llf0,'\n',
-        'llf:',llf,'\n')
+    # llf=sum(log(v))-theta$theta*sum(x)+n*log(theta$theta)+(N-n)*log(1-sum(p*v))
+    #' cat(loop,'\n',
+    #'     'c:',c$c,c$iter,c$fmid,'\n',
+    #'     'v:',v$v_tilde,v$index,'\n',
+    #'     'theta:',theta$theta,theta$iter,theta$fmid,'\n',
+    #'     #'llf0:',llf0,'\n',
+    #'     'llf:',llf,sum(p*v$v),'\n')
     if(abs(theta$theta-theta0)<0.001) return(list(v=v$v_tilde,theta=theta$theta,llf=llf))
     theta0=theta$theta #;v0=v
     loop=loop+1
   }
 }
 
-x=sort(rgamma(10,shape=2+1,rate=5))
-N=n2N(x,2,5)
+x=sort(rgamma(10,shape=0+1,rate=3))
+N=n2N(x,0,3)
 mean(x)/var(x)
 re=MM(x,N,0.03,0.03)
-
-# x=sort(rexp(300,5))
-# 1/mean(x)
-# MM(x,350,0.03,0.3)
 
 
 ############################
@@ -207,9 +204,9 @@ n2N=function(x,b,theta){ # compute lower bound of N based on x and theta
 }
 
 library(pbapply)
-M=30
-bb=seq(0,5,1)#0.5)
-n=c(10)#,20,50)
+M=100
+bb=seq(0,3,0.2)
+n=c(10,20,50)
 betas=matrix(nrow=length(bb),ncol=length(n))
 for(j in 1:length(n)){
   for(i in 1:length(bb)){
@@ -219,7 +216,7 @@ for(j in 1:length(n)){
       x=sort(rgamma(n[j],shape=b+1,rate=1))
       N=n2N(x,b,1)
       MME=MM(x,N,0.03,0.03)
-      cri=quantile(pbsapply(1:30,function(nouse){
+      cri=quantile(pbsapply(1:100,function(nouse){
         x=sort(rexp(n[j],MME$theta))
         N=n2N(x,0,1)
         return(MM(sort(rexp(n[j],MME$theta)),N,0.03,0.03)$llf) # under null, no selection-bias, N=n
@@ -229,7 +226,7 @@ for(j in 1:length(n)){
     betas[i,j]=sum(temp)/M
   }
 }
-save(betas,file="MM_power.Rda")
+# save(betas,file="MM_power.Rda")
 
 
 #######################
